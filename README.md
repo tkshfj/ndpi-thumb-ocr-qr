@@ -6,7 +6,7 @@ A command-line tool that organizes NDPI whole-slide images into per-slide folder
 
 ## Background
 
-We increasingly receive whole slide images (WSIs) that were **scanned outside our facilities**—for example by partner clinics, external pathology laboratories, or contract scanning services. In these cases, the scanning site often provides only the **image files** (e.g., NDPI/SVS/MRX) via secure transfer or physical media, but may not provide **structured metadata** in a form that can be reliably imported into our intranet systems.
+We increasingly receive whole slide images (WSIs) that were produced outside our facilities—for example by partner clinics, external pathology laboratories, or contract scanning services. In these cases, the scanning site often provides only the image files (e.g., NDPI/SVS/MRX) via secure transfer or physical media, but may not provide structured metadata in a form that can be reliably imported into our intranet systems.
 
 ### Why textual metadata may be missing even though we have the WSI
 
@@ -19,33 +19,11 @@ In routine workflows, common identifiers and context—such as:
 
 are not always available as standardized, portable metadata that consistently travels with the WSI. Instead, this information is often:
 
-1. **Printed on the glass slide label** (as human-readable text and sometimes a QR/barcode), and/or
-2. Embedded in **scanner- or vendor-specific headers** that vary across platforms and may be difficult to access consistently, and/or
-3. Reflected only in a **folder/file naming convention** created at the scanning site (which can be inconsistent, localized, or modified during transfer).
+1. Printed on the glass slide label (as human-readable text and sometimes a QR/barcode), and/or
+2. Embedded in scanner- or vendor-specific headers that vary across platforms and may be difficult to access consistently, and/or
+3. Reflected only in a folder/file naming convention created at the scanning site (which can be inconsistent, localized, or modified during transfer).
 
-As a result, when the WSI arrives in our intranet environment, we may effectively receive a “pixel object”: a large image where key identifiers are present primarily in the label region as **visual information**, rather than as readily searchable textual metadata fields.
-
-### The operational need
-
-Our internal systems (LIS/reporting application, audit logs, specimen tracking, case reconciliation) work best when textual metadata is available to:
-
-* associate images with the correct case
-* reduce the chance of mix-ups between slides/blocks/levels
-* support search and retrieval
-* improve traceability and audit readiness
-* minimize manual re-entry and transcription
-
-When scanning is performed outside our facilities, it is not always realistic to rely on:
-
-* direct database/API integration with the external scanning site
-* shared accessioning systems
-* consistent slide-label templates
-* consistent file naming conventions
-* availability of vendor viewer software in our environment (offline/intranet-only constraints)
-
-In practice, the most accessible sources of identifiers are often what is printed on the slide label and what is visually captured in the WSI.
-
----
+As a result, when the WSI arrives in our intranet environment, we may effectively receive a “pixel object”: a large image where key identifiers are present primarily in the label region as visual information, rather than as readily searchable textual metadata fields.
 
 ## Why we extract thumbnails, OCR, and QR labels
 
@@ -91,7 +69,7 @@ Where naming conventions vary across external sources, QR decoding often becomes
 
 ---
 
-## Why this is particularly helpful for externally scanned slides
+## Why this is particularly helpful for externally produced slides
 
 When scanning happens in-house, we can usually standardize:
 
@@ -102,11 +80,11 @@ When scanning happens in-house, we can usually standardize:
 
 When scanning happens outside our facilities, these conventions may vary. Extracting:
 
-* **thumbnails** (for quick review),
-* **OCR text** (for searchable label text), and
-* **QR data** (for convenient linkage when available)
+* thumbnails (for quick review),
+* OCR text (for searchable label text), and
+* QR data (for convenient linkage when available)
 
-is a practical approach that improves usability and reduces manual handling when integrating externally scanned WSIs into internal workflows.
+is a practical approach that improves usability and reduces manual handling when integrating externally produced WSIs into internal workflows.
 
 ---
 
@@ -234,8 +212,8 @@ The OCR config supports:
 
 Status notes:
 
-* **Crop toggle is effective:** `--ocr-no-crop-label` is honored.
-* **Auto-rotate toggle is honored:** `--no-ocr-auto-rotate` maps to `OcrCfg.auto_rotate`.
+* Crop toggle is effective: `--ocr-no-crop-label` is honored.
+* Auto-rotate toggle is honored: `--no-ocr-auto-rotate` maps to `OcrCfg.auto_rotate`.
 
 ### 4.2 Candidate search and performance
 
@@ -281,8 +259,8 @@ The crop heuristic was made more robust by:
 
 Status notes:
 
-* **`--qr` is required:** QR decoding runs only when `--qr` is specified.
-* **Rotation alignment:** Defaults are aligned between OCR and QR configs, and `--qr-rotations` can be set to match OCR rotation candidates.
+* `--qr` is required: QR decoding runs only when `--qr` is specified.
+* Rotation alignment: Defaults are aligned between OCR and QR configs, and `--qr-rotations` can be set to match OCR rotation candidates.
 
   * Remaining gap: QR rotations are not automatically derived from OCR rotations. If OCR is forced to a specific rotation, QR still uses `--qr-rotations` unless also updated explicitly.
 
