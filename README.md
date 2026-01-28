@@ -6,85 +6,98 @@ A command-line tool that organizes NDPI whole-slide images into per-slide folder
 
 ## Background
 
-We increasingly receive whole slide images (WSIs) that were produced outside our facilities—for example by partner clinics, external pathology laboratories, or contract scanning services. In these cases, the scanning site often provides only the image files (e.g., NDPI/SVS/MRX) via secure transfer or physical media, but may not provide structured metadata in a form that can be reliably imported into our intranet systems.
+We increasingly receive whole slide images (WSIs) that were produced outside our facilities—for example by partner clinics, external pathology laboratories, or contract scanning services. In many of these cases, the scanning site *does* maintain case-related information, but it is often delivered separately from the WSI files—frequently as paper-based documents (e.g., requisitions, slide lists, shipping forms) or ad-hoc attachments—rather than as structured, machine-importable metadata packaged with each image.
 
-### Why textual metadata may be missing even though we have the WSI
+## Why WSI–metadata linkage isn’t always automatic
 
-In routine workflows, common identifiers and context—such as:
+Even when accompanying information exists, it may not arrive in a uniform format that maps cleanly to individual WSI files without some reconciliation.
+
+Common identifiers and context—such as:
 
 * accession number / case ID
 * specimen site, block number, slide level
 * stain / IHC marker
 * date, facility code, technician notes
 
-are not always available as standardized, portable metadata that consistently travels with the WSI. Instead, this information is often:
+may exist in the sending workflow, but are commonly conveyed through one or more of the following channels:
 
-1. Printed on the glass slide label (as human-readable text and sometimes a QR/barcode), and/or
-2. Embedded in scanner- or vendor-specific headers that vary across platforms and may be difficult to access consistently, and/or
-3. Reflected only in a folder/file naming convention created at the scanning site (which can be inconsistent, localized, or modified during transfer).
+1. Paper-based documentation (separate from the image files)
 
-As a result, when the WSI arrives in our intranet environment, we may effectively receive a “pixel object”: a large image where key identifiers are present primarily in the label region as visual information, rather than as readily searchable textual metadata fields.
+* Printed case sheets, slide manifests, or requisitions may accompany shipments or be provided as scanned PDFs/photos.
+* This information is accurate and essential, but it is often batch- or case-level, and therefore not automatically tied to a specific filename unless matched explicitly.
+
+2. Glass slide labels (human-readable and sometimes QR/barcode)
+
+* Labels often contain the most dependable identifiers, but they are primarily visual (printed/handwritten) and appear in the WSI’s label region rather than as directly searchable text fields.
+
+3. Scanner/vendor-specific headers and sidecar metadata
+
+* Some scanners embed metadata, but available fields and access methods vary by vendor and format, and extraction can differ across NDPI/SVS/MRX and software toolchains.
+
+4. Folder/file naming conventions created during scanning/export
+
+* Naming can be helpful, but may vary across sites, include localized formatting (language/date conventions), or be modified during transfer (renaming, folder flattening, copy rules).
+
+As a result, we may receive a WSI where the most dependable identifiers are visible in the label pixels, while other accompanying information is provided outside the WSI (often on paper or in loosely structured documents), requiring straightforward matching steps to associate each image with its correct context.
 
 ## Why we extract thumbnails, OCR, and QR labels
 
-### 1) Thumbnail extraction helps with quick review and triage
+### 1) Thumbnail extraction supports quick review and triage
 
-WSIs are large, and opening them in a full viewer just to identify the case/slide can be slow.
+WSIs are large, and opening full-resolution imagery just to identify a slide can be slow.
 
-Generating thumbnails (including a label-region thumbnail when available) can support:
+Generating thumbnails—especially including a label-region thumbnail when available—supports:
 
-* rapid QC checks (e.g., tissue presence, label legibility)
-* quick matching of batches of slides to a case list
-* preview in internal tools without loading full-resolution imagery
-* faster detection of obvious scanning/handling issues (orientation, wrong slide, missing tissue)
+* rapid QC checks (tissue presence, label legibility)
+* quick batch sorting and matching against a slide list or manifest
+* lightweight preview without loading full-resolution data
+* early detection of scanning/handling issues (orientation, wrong slide, missing tissue)
 
-Overall, thumbnails make review and sorting workflows lighter and more repeatable.
+Thumbnails make review and sorting workflows faster, lighter, and more repeatable.
 
-### 2) OCR helps capture label text when no machine-readable code is available
+### 2) OCR captures label text when no reliable machine-readable linkage exists
 
-Not all slides include QR codes. Many labels contain:
+Not all slides include QR codes, and even when they do, paper-based documents may contain information not encoded in the code.
+
+OCR helps convert label pixels into searchable text such as:
 
 * printed accession numbers
 * handwritten notes
 * mixed Japanese/English descriptions (including stain names)
-* facility-specific formatting
+* facility-specific label formats
 
-In these cases, OCR is a practical way to convert label pixels into textual metadata that can be searched, indexed, and compared against case records.
+OCR is also valuable as a fallback when:
 
-Even when a QR code exists, OCR can still be useful for:
+* QR/barcodes are damaged, partially captured, or out of focus
+* the code encodes only an ID, but other context (stain, block/level notation) must be captured from the printed label
+* a paper manifest must be reconciled to individual WSIs using label text
 
-* fallback when QR is damaged, partially captured, or out of focus
-* capturing additional context that is not encoded in the QR (e.g., stain name, block/level notation)
+### 3) QR/barcode decoding provides fast, reliable linkage when present
 
-### 3) QR (or barcode) decoding supports faster and more reliable linkage when present
-
-When available, QR codes can provide a convenient bridge between external slides and internal cases because they:
+When available, QR codes and barcodes can serve as a consistent bridge between externally produced slides and separately provided information because they:
 
 * reduce manual typing
 * can encode structured identifiers (accession/block/slide)
 * enable straightforward batch mapping
-* make it easier to flag potential mismatches (e.g., QR vs folder naming)
+* help flag mismatches (e.g., QR value vs filename vs paper manifest)
 
-Where naming conventions vary across external sources, QR decoding often becomes a useful “common denominator” for consistent linkage.
-
----
+Where naming conventions vary across external sources, QR decoding often becomes the most consistent “common denominator” for scalable linkage.
 
 ## Why this is particularly helpful for externally produced slides
 
-When scanning happens in-house, we can usually standardize:
+When slides and scanning are performed under our direct control, it is easier to standardize:
 
 * label formats
-* case identifiers
-* scanner-to-LIS integration
-* file naming and export rules
+* identifiers and conventions
+* scanner export rules and metadata consistency
 
-When scanning happens outside our facilities, these conventions may vary. Extracting:
+When scanning happens outside our facilities, both the image packaging and the metadata delivery method (often paper-based and separate) vary substantially. Extracting:
 
-* thumbnails (for quick review),
-* OCR text (for searchable label text), and
-* QR data (for convenient linkage when available)
+* thumbnails (for fast review),
+* OCR text (for searchable label-derived identifiers), and
+* QR/barcode data (for robust linkage when present)
 
-is a practical approach that improves usability and reduces manual handling when integrating externally produced WSIs into internal workflows.
+is a practical approach that reduces manual handling, improves traceability, and increases usability when integrating externally produced WSIs into routine workflows.
 
 ---
 
