@@ -1,24 +1,132 @@
 # NDPI Whole-Slide Organizer — Thumbnails, OCR & QR Extraction
 
-A command-line tool that organizes NDPI whole-slides into per-slide folders, generates Explorer-friendly JPEG thumbnails, and OCRs label/thumbnail text into adjacent .ocr.txt files for indexing and search.
+A command-line tool that organizes NDPI whole-slide images into per-slide folders, generates Explorer-friendly JPEG thumbnails, and extracts label text via OCR into adjacent `.ocr.txt` files for indexing and search. Optionally, it can decode QR codes from slide labels and store the decoded payload alongside OCR output.
+
+---
+
+## Background
+
+We increasingly receive whole slide images (WSIs) that were **scanned outside our facilities**—for example by partner clinics, external pathology laboratories, or contract scanning services. In these cases, the scanning site often provides only the **image files** (e.g., NDPI/SVS/MRX) via secure transfer or physical media, but may not provide **structured metadata** in a form that can be reliably imported into our intranet systems.
+
+### Why textual metadata may be missing even though we have the WSI
+
+In routine workflows, common identifiers and context—such as:
+
+* accession number / case ID
+* specimen site, block number, slide level
+* stain / IHC marker
+* date, facility code, technician notes
+
+are not always available as standardized, portable metadata that consistently travels with the WSI. Instead, this information is often:
+
+1. **Printed on the glass slide label** (as human-readable text and sometimes a QR/barcode), and/or
+2. Embedded in **scanner- or vendor-specific headers** that vary across platforms and may be difficult to access consistently, and/or
+3. Reflected only in a **folder/file naming convention** created at the scanning site (which can be inconsistent, localized, or modified during transfer).
+
+As a result, when the WSI arrives in our intranet environment, we may effectively receive a “pixel object”: a large image where key identifiers are present primarily in the label region as **visual information**, rather than as readily searchable textual metadata fields.
+
+### The operational need
+
+Our internal systems (LIS/reporting application, audit logs, specimen tracking, case reconciliation) work best when textual metadata is available to:
+
+* associate images with the correct case
+* reduce the chance of mix-ups between slides/blocks/levels
+* support search and retrieval
+* improve traceability and audit readiness
+* minimize manual re-entry and transcription
+
+When scanning is performed outside our facilities, it is not always realistic to rely on:
+
+* direct database/API integration with the external scanning site
+* shared accessioning systems
+* consistent slide-label templates
+* consistent file naming conventions
+* availability of vendor viewer software in our environment (offline/intranet-only constraints)
+
+In practice, the most accessible sources of identifiers are often what is printed on the slide label and what is visually captured in the WSI.
+
+---
+
+## Why we extract thumbnails, OCR, and QR labels
+
+### 1) Thumbnail extraction helps with quick review and triage
+
+WSIs are large, and opening them in a full viewer just to identify the case/slide can be slow.
+
+Generating thumbnails (including a label-region thumbnail when available) can support:
+
+* rapid QC checks (e.g., tissue presence, label legibility)
+* quick matching of batches of slides to a case list
+* preview in internal tools without loading full-resolution imagery
+* faster detection of obvious scanning/handling issues (orientation, wrong slide, missing tissue)
+
+Overall, thumbnails make review and sorting workflows lighter and more repeatable.
+
+### 2) OCR helps capture label text when no machine-readable code is available
+
+Not all slides include QR codes. Many labels contain:
+
+* printed accession numbers
+* handwritten notes
+* mixed Japanese/English descriptions (including stain names)
+* facility-specific formatting
+
+In these cases, OCR is a practical way to convert label pixels into textual metadata that can be searched, indexed, and compared against case records.
+
+Even when a QR code exists, OCR can still be useful for:
+
+* fallback when QR is damaged, partially captured, or out of focus
+* capturing additional context that is not encoded in the QR (e.g., stain name, block/level notation)
+
+### 3) QR (or barcode) decoding supports faster and more reliable linkage when present
+
+When available, QR codes can provide a convenient bridge between external slides and internal cases because they:
+
+* reduce manual typing
+* can encode structured identifiers (accession/block/slide)
+* enable straightforward batch mapping
+* make it easier to flag potential mismatches (e.g., QR vs folder naming)
+
+Where naming conventions vary across external sources, QR decoding often becomes a useful “common denominator” for consistent linkage.
+
+---
+
+## Why this is particularly helpful for externally scanned slides
+
+When scanning happens in-house, we can usually standardize:
+
+* label formats
+* case identifiers
+* scanner-to-LIS integration
+* file naming and export rules
+
+When scanning happens outside our facilities, these conventions may vary. Extracting:
+
+* **thumbnails** (for quick review),
+* **OCR text** (for searchable label text), and
+* **QR data** (for convenient linkage when available)
+
+is a practical approach that improves usability and reduces manual handling when integrating externally scanned WSIs into internal workflows.
+
+---
 
 ## 1. Scope and objective
 
-We are building a command-line repository that:
+This repository provides a command-line workflow that:
 
-* Organizes NDPI whole-slide images into per-slide folders.
-* Generates Explorer-friendly JPEG thumbnails (`folder.jpg`).
-* Extracts label/thumbnail text using OCR and saves results as `folder.ocr.txt` for indexing and search.
-* Optionally decodes QR codes from the same label/thumbnail image and includes the decoded payload alongside OCR output (only when `--qr` is specified).
+* Organizes NDPI whole-slide images into per-slide folders
+* Generates Explorer-friendly JPEG thumbnails (`folder.jpg`)
+* Extracts label/thumbnail text using OCR and saves results as `folder.ocr.txt` for indexing and search
+* Optionally decodes QR codes from the same label/thumbnail image and appends the decoded payload to `folder.ocr.txt` (only when `--qr` is specified)
 
 Key issues addressed during refactoring:
 
-* OCR quality degraded by label orientation and small text.
-* OCR edge character loss due to crop/rotation interactions.
-* Runtime increased due to excessive candidate search.
-* macOS OpenSlide dylib load failures.
-* Code-quality issues (unexpected kwargs, complexity, toggles not honored).
-* Consistent, explicit CLI behavior for OCR/QR.
+* OCR quality degraded by label orientation and small text
+* OCR edge character loss due to crop/rotation interactions
+* Runtime increased due to excessive candidate search
+* macOS OpenSlide dylib load failures
+* Code-quality issues (unexpected kwargs, complexity, toggles not honored)
+* Consistent, explicit CLI behavior for OCR/QR
 
 ---
 
@@ -33,21 +141,21 @@ Each slide `X.ndpi` is moved into a folder `X/slide.ndpi`:
 
 Within each slide folder:
 
-* `folder.jpg` — JPEG thumbnail used by Windows Explorer folder preview.
-* `folder.ocr.txt` — OCR output, and QR payload if enabled.
+* `folder.jpg` — JPEG thumbnail used by Windows Explorer folder preview
+* `folder.ocr.txt` — OCR output; includes QR payload if enabled
 
-### Setup
+### 2.2 Setup
 
 ```bash
 cd /path/to/repository
 python3 -m venv .venv
-pip install -r requirements.txt
 source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### 2.2 CLI usage
+### 2.3 CLI usage
 
-Example run (OCR + QR):
+OCR + QR:
 
 ```bash
 python make_thumbs.py --root ./data --ocr --qr
@@ -59,58 +167,24 @@ Dry run:
 python make_thumbs.py --root ./data --ocr --qr --dry-run
 ```
 
-### Basic run (OCR only)
-
-Generates `folder.jpg` and writes OCR output to `folder.ocr.txt`:
+OCR only:
 
 ```bash
 python make_thumbs.py --root ./data --ocr
 ```
 
-### OCR + QR run
+### 2.4 Common options
 
-Generates `folder.jpg` and writes `[QR]` and `[OCR]` sections into `folder.ocr.txt`:
+* Enable OCR output: `--ocr`
+* Enable QR decoding (only runs when specified): `--qr`
+* OCR language candidates: `--ocr-lang-candidates "jpn+eng,jpn,eng"`
+* OCR PSM candidates: `--ocr-psm-candidates "6,11"`
+* Force a specific rotation: `--ocr-rotate -90`
+* Disable label cropping: `--ocr-no-crop-label`
+* Disable auto-rotate: `--no-ocr-auto-rotate`
+* QR rotation candidates: `--qr-rotations "0,-90"`
 
-```bash
-python make_thumbs.py --root ./data --ocr --qr
-```
-
-### Dry run (no file changes)
-
-Shows what would be moved/written, without modifying files:
-
-```bash
-python make_thumbs.py --root ./data --ocr --qr --dry-run
-```
-
-### Common options
-
-* Enable OCR output:
-
-  * `--ocr`
-* Enable QR decoding (only runs when specified):
-
-  * `--qr`
-* Set OCR language candidates:
-
-  * `--ocr-lang-candidates "jpn+eng,jpn,eng"`
-* Set OCR PSM candidates:
-
-  * `--ocr-psm-candidates "6,11"`
-* Force a specific rotation (if needed):
-
-  * `--ocr-rotate -90` (example)
-* Disable label cropping:
-
-  * `--ocr-no-crop-label`
-* Disable auto-rotate:
-
-  * `--no-ocr-auto-rotate`
-* Set QR rotation candidates:
-
-  * `--qr-rotations "0,-90"`
-
-### Expected outputs per slide folder
+### 2.5 Expected outputs per slide folder
 
 After running, each slide folder contains:
 
@@ -124,13 +198,13 @@ After running, each slide folder contains:
 
 ### 3.1 Tesseract
 
-We use Tesseract via `pytesseract` with mixed-language candidates such as `"jpn+eng"` to support Japanese/English labels.
+OCR uses Tesseract via `pytesseract`. Mixed-language candidates such as `jpn+eng` are supported for Japanese/English labels.
 
 ### 3.2 OpenSlide dylib issue (macOS)
 
-We hit an OpenSlide loader error when `openslide-python` was installed but the OpenSlide dynamic library was not found.
+`openslide-python` requires the OpenSlide dynamic library. On macOS, this may fail if the library is not present.
 
-Fix: include `openslide-bin` so the OpenSlide library is available on macOS.
+Mitigation: include `openslide-bin` so the OpenSlide library is available on macOS.
 
 ### 3.3 Requirements
 
@@ -141,7 +215,7 @@ Current `requirements.txt` includes:
 * `Pillow`
 * `pytesseract`
 * `numpy`
-* `opencv-python` (QR decoding via OpenCV `QRCodeDetector`)
+* `opencv-python` (QR decoding via `cv2.QRCodeDetector`)
 
 ---
 
@@ -156,36 +230,33 @@ The OCR config supports:
 * Preprocessing: upscale, contrast, optional threshold, sharpen
 * Rotation strategy: forced rotation or a small candidate set when auto-rotating
 * Label cropping toggle and heuristic fallback
-* Early stop threshold for speed
+* Early-stop threshold for speed
 
-#### Recommendation status integrated
+Status notes:
 
-* **8.3 Make OCR crop toggle effective — Implemented.**
-  `--ocr-no-crop-label` is honored when building `OcrCfg` (label cropping can be turned off).
-
-* **8.4 Ensure auto-rotate toggle is honored — Implemented.**
-  `--no-ocr-auto-rotate` is wired into `OcrCfg.auto_rotate`. Duplicate/competing controls were consolidated so the dedicated toggle is the authoritative control.
+* **Crop toggle is effective:** `--ocr-no-crop-label` is honored.
+* **Auto-rotate toggle is honored:** `--no-ocr-auto-rotate` maps to `OcrCfg.auto_rotate`.
 
 ### 4.2 Candidate search and performance
 
-We use a two-stage approach:
+Two-stage approach:
 
 1. Score candidates using `pytesseract.image_to_data` (confidence-based).
 2. Run `pytesseract.image_to_string` once for the best candidate.
 
-We reduce runtime by:
+Runtime improvements:
 
-* Restricting rotation candidates to a small set.
-* Keeping regions minimal (label-first).
-* Early stopping when confidence exceeds `early_stop_conf`.
+* Restrict rotation candidates to a small set
+* Keep regions minimal (label-first)
+* Early-stop when confidence exceeds `early_stop_conf`
 
 ### 4.3 Edge character preservation
 
 To reduce glyph loss at edges:
 
-* We pad candidate images with a white border before OCR.
-* We avoid trimming left edges.
-* We only create a “trim bottom” variant in controlled cases.
+* Pad candidate images with a white border before OCR
+* Avoid trimming left edges
+* Only create a “trim bottom” variant in controlled cases
 
 ---
 
@@ -193,10 +264,10 @@ To reduce glyph loss at edges:
 
 The crop heuristic was made more robust by:
 
-* Computing column mean intensity over the middle vertical band of rows (reduces border/corner interference).
-* Searching for the separator band only in a bounded x-range (avoids locking onto borders).
-* Enforcing a minimum crop width and adding a margin.
-* Falling back to a fixed left-width ratio when no separator is detected.
+* Computing column mean intensity over the middle vertical band of rows (reduces border/corner interference)
+* Searching for the separator band only in a bounded x-range (avoids locking onto borders)
+* Enforcing a minimum crop width and adding a margin
+* Falling back to a fixed left-width ratio when no separator is detected
 
 ---
 
@@ -204,18 +275,16 @@ The crop heuristic was made more robust by:
 
 ### 6.1 QR config (`QrCfg`) and decoding
 
-* QR decoding uses OpenCV’s `cv2.QRCodeDetector`.
-* We try configured rotation candidates for QR decoding.
-* Output is merged into the same `folder.ocr.txt` file.
+* QR decoding uses OpenCV’s `cv2.QRCodeDetector`
+* Configured rotation candidates are tried for decoding
+* Output is merged into the same `folder.ocr.txt` file
 
-#### Recommendation status integrated
+Status notes:
 
-* **8.1 Ensure `--qr` is required for QR decoding — Implemented.**
-  QR decoding runs only when `--qr` is specified. `QrCfg` is built in `__main__` and passed into processing functions.
+* **`--qr` is required:** QR decoding runs only when `--qr` is specified.
+* **Rotation alignment:** Defaults are aligned between OCR and QR configs, and `--qr-rotations` can be set to match OCR rotation candidates.
 
-* **8.2 Align QR rotation config with chosen rotation set — Partially implemented.**
-  Defaults are aligned between OCR and QR configs. `--qr-rotations` exists and can be set to match OCR rotation candidates.
-  Remaining gap: QR rotations are not automatically derived from OCR rotations. If OCR is forced to a specific rotation, QR still uses `--qr-rotations` unless we also change it explicitly.
+  * Remaining gap: QR rotations are not automatically derived from OCR rotations. If OCR is forced to a specific rotation, QR still uses `--qr-rotations` unless also updated explicitly.
 
 ### 6.2 Output format
 
@@ -239,32 +308,34 @@ When `--qr` is not enabled:
 
 ### 7.1 Cover generation
 
-* Prefer embedded associated images (`thumbnail`, `macro`, `label`) for `folder.jpg`.
-* Fallback to `slide.get_thumbnail()`.
+* Prefer embedded associated images (`thumbnail`, `macro`, `label`) for `folder.jpg`
+* Fallback to `slide.get_thumbnail()`
 
 ### 7.2 OCR source selection
 
-* Prefer associated images (`label`, `macro`, `thumbnail`) for OCR.
-* Fallback to a larger render size if needed.
+* Prefer associated images (`label`, `macro`, `thumbnail`) for OCR
+* Fallback to a larger render size if needed
 
 ### 7.3 Atomic writes
 
-* Both JPEG and text outputs are written via temp files and replaced atomically to reduce partial writes on SMB.
+* Both JPEG and text outputs are written via temp files and replaced atomically to reduce partial writes on SMB shares
 
 ### 7.4 QR is not hardcoded
 
-* QR is enabled only via `--qr`.
-* `QrCfg` is constructed in `__main__` and passed down through processing functions.
+* QR is enabled only via `--qr`
+* `QrCfg` is constructed in `__main__` and passed through processing functions
 
 ---
 
 ## 8. Summary of decisions
 
-* Use `openslide-bin` to avoid OpenSlide loader failures on macOS.
-* Use mixed-language OCR candidates (notably `"jpn+eng"`).
-* Improve label cropping robustness with middle-band analysis and bounded separator detection.
-* Improve OCR stability and speed using preprocessing, candidate scoring, padding, and early stopping.
-* Add optional QR decoding via OpenCV, enabled only via `--qr`, and merge output with OCR in `folder.ocr.txt`.
-* Refactor for maintainability by separating cover writing, OCR/QR text building, and low-level OCR/QR utilities.
+* Use `openslide-bin` to avoid OpenSlide loader failures on macOS
+* Use mixed-language OCR candidates (notably `jpn+eng`)
+* Improve label cropping robustness with middle-band analysis and bounded separator detection
+* Improve OCR stability and speed using preprocessing, candidate scoring, padding, and early stopping
+* Add optional QR decoding via OpenCV, enabled only via `--qr`, and merge output with OCR in `folder.ocr.txt`
+* Refactor for maintainability by separating cover writing, OCR/QR text building, and low-level OCR/QR utilities
 
-If we want to close the remaining gap in QR/OCR rotation alignment, we can auto-default QR rotations to the OCR rotation set when `--qr-rotations` is not provided (while still allowing explicit override).
+Optional follow-up improvement:
+
+* Auto-default QR rotations to the OCR rotation set when `--qr-rotations` is not provided (while still allowing explicit override).
